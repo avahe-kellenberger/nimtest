@@ -41,20 +41,32 @@ macro describe*(description: string, body: untyped): untyped =
       ":"
     )
 
-  var testBlocks: seq[NimNode]
-  for test in body:
-    if test.kind == nnkCommand:
-      let testDecl = test[0]
-      if testDecl.kind == nnkDotExpr:
-        if testDecl[0].kind == nnkIdent:
-          if testDecl[0].strVal == "test" or testDecl[0].strVal == "it":
-            if testDecl[1].kind == nnkIdent and testDecl[1].strVal == "only":
-              test[0] = newIdentNode("test")
-              testBlocks.add test
+  var
+    # outsideTestBlocks is used when there are "it.only" conditions.
+    # The code outside of test blocks is typically used _in_ tests.
+    outsideTestBlocks: seq[NimNode]
+    testBlocks: seq[NimNode]
+
+  for node in body:
+    var addedTestBlock = false
+    if node.kind == nnkCommand:
+      let testDecl = node[0]
+      if testDecl.kind == nnkDotExpr and testDecl[0].kind == nnkIdent:
+        if testDecl[0].strVal == "test" or testDecl[0].strVal == "it":
+          if testDecl[1].kind == nnkIdent and testDecl[1].strVal == "only":
+            node[0] = newIdentNode("test")
+            testBlocks.add node
+            addedTestBlock = true
+
+    if not addedTestBlock:
+      outsideTestBlocks.add node
 
   if testBlocks.len > 0:
+    if outsideTestBlocks.len > 0:
+      result.add outsideTestBlocks
     result.add testBlocks
   else:
+    # No exclusive tests, add everything under the describe block.
     result.add body
 
 template test*(description: string, body: untyped) =

@@ -1,11 +1,8 @@
 import
-  os,
   osproc,
-  parseopt,
   strutils,
   strformat,
-  locks,
-  sets
+  locks
 
 import nimtestpkg/tester
 export tester
@@ -32,6 +29,11 @@ proc testFile(a: tuple[file: string, args: string]) {.thread.} =
   release(lock)
 
 when isMainModule:
+  import
+    os,
+    sets,
+    parseopt
+
   var
     optParser = initOptParser()
     testFiles: OrderedSet[string]
@@ -60,24 +62,17 @@ when isMainModule:
       if file.endsWith(testFileSuffix):
         testFiles.incl(file)
 
-  if testFiles.len > 1:
-    echo fmt"Found {testFiles.len} tests..."
+  if testFiles.len >= 1:
+    echo fmt"Tests found: {testFiles.len}"
     initLock(lock)
 
     var threads = newSeq[Thread[tuple[file: string, args: string]]](testFiles.len)
+    echo "Running tests..."
     for (i, file) in testFiles.pairs:
       createThread(threads[i], testFile, (file, cmdlineArgs))
     joinThreads(threads)
     
     deinitLock(lock)
-
-  elif testFiles.len == 1:
-    echo "Found 1 test..."
-    var test: string
-    for file in testFiles:
-      test = file
-
-    testFile((test, cmdlineArgs))
   else:
     echo "No tests found."
 
