@@ -1,18 +1,25 @@
 import
   macros,
-  strformat,
-  terminal
+  terminal,
+  strutils,
+  strformat
 
 export
   macros,
-  strformat,
-  terminal
+  terminal,
+  strutils,
+  strformat
+
+# TODO: Make configurable
+const NUM_INDENTATION_SPACES = 2
+
+var testOutputIndentation = 0
 
 template echoSuccess(args: varargs[untyped]) =
   styledWriteLine(
     stdout,
     fgGreen,
-    "  [Success]: ",
+    indent("[Success]: ", testOutputIndentation),
     fgDefault,
     args
   )
@@ -21,7 +28,7 @@ template echoError(args: varargs[untyped]) =
   styledWriteLine(
     stdout,
     fgRed,
-    "  [Failed]: ",
+    indent("[Failed]: ", testOutputIndentation),
     fgDefault,
     args
   )
@@ -29,6 +36,7 @@ template echoError(args: varargs[untyped]) =
 macro describe*(description: string, body: untyped): untyped =
   result = newStmtList()
   result.add quote do:
+    writeStyled(repeat(' ', testOutputIndentation))
     styledWrite(
       stdout,
       fgYellow,
@@ -40,6 +48,9 @@ macro describe*(description: string, body: untyped): untyped =
       fgYellow,
       ":"
     )
+
+  result.add quote do:
+    testOutputIndentation += NUM_INDENTATION_SPACES
 
   var
     # outsideTestBlocks is used when there are "it.only" conditions.
@@ -69,9 +80,14 @@ macro describe*(description: string, body: untyped): untyped =
     # No exclusive tests, add everything under the describe block.
     result.add body
 
+  result.add quote do:
+    testOutputIndentation -= NUM_INDENTATION_SPACES
+
 template test*(description: string, body: untyped) =
   try:
+    testOutputIndentation += NUM_INDENTATION_SPACES
     body
+    testOutputIndentation -= NUM_INDENTATION_SPACES
     echoSuccess(description)
   except:
     echoError(description, "\n\t", getCurrentExceptionMsg())
