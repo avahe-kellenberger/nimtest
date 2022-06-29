@@ -118,32 +118,24 @@ template assertRaises*(exception: typedesc, errorMessage: string, code: untyped)
   ## .. code-block:: nim
   ##  doAssertRaisesSpecific(ValueError, "wrong value!"):
   ##    raise newException(ValueError, "Hello World")
-  var wrong = false
-  when Exception is exception:
-    try:
-      if true:
-        code
-      wrong = true
-    except Exception as e:
-      if e.msg != errorMessage:
-        raiseAssert("Wrong exception was raised: " & e.msg)
-      discard
-  else:
-    try:
-      if true:
-        code
-      wrong = true
-    except exception:
-      discard
-    except Exception:
+  var codeDidNotRaiseException = false
+  try:
+    code
+    codeDidNotRaiseException = true
+  except Exception as e:
+    if e.msg != errorMessage:
+      raiseAssert("Wrong exception was raised: " & e.msg)
+
+    if e.name != $exception:
       raiseAssert(
+        $e.name &
+        " was raised instead of " &
         astToStr(exception) &
-        " wasn't raised, another error was raised instead by:\n"&
-        astToStr(code)
+        ": " & strip(astToStr(code))
       )
 
-  if wrong:
-    raiseAssert(astToStr(exception) & " wasn't raised by:\n" & astToStr(code))
+  if codeDidNotRaiseException:
+    raiseAssert(astToStr(exception) & " wasn't raised by: " & strip(astToStr(code)))
 
 when isMainModule:
   describe "testing":
