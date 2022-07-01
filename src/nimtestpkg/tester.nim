@@ -63,8 +63,8 @@ macro describe*(description: string, body: untyped): untyped =
     if node.kind == nnkCommand:
       let testDecl = node[0]
       if testDecl.kind == nnkDotExpr and testDecl[0].kind == nnkIdent:
-        if testDecl[0].strVal == "test" or testDecl[0].strVal == "it":
-          if testDecl[1].kind == nnkIdent and testDecl[1].strVal == "only":
+        if eqIdent("test", testDecl[0].strVal) or eqIdent("it", testDecl[0].strVal):
+          if testDecl[1].kind == nnkIdent and eqIdent("only", testDecl[1].strVal):
             node[0] = newIdentNode("test")
             testBlocks.add node
             addedTestBlock = true
@@ -111,7 +111,7 @@ template assertAlmostEquals*(a, b: float): untyped =
       "\n\tassertAlmostEquals(" & astToStr(a) & ", " & astToStr(b) & ")"
     )
 
-template assertRaises*(exception: typedesc, errorMessage: string, code: untyped) =
+template assertRaises*(exception: typedesc[Exception], errorMessage: string, code: untyped) =
   ## Raises ``AssertionDefect`` if specified ``code`` does not raise the
   ## specified exception. Example:
   ##
@@ -126,16 +126,11 @@ template assertRaises*(exception: typedesc, errorMessage: string, code: untyped)
     if e.msg != errorMessage:
       raiseAssert("Wrong exception was raised: " & e.msg)
 
-    if e.name != $exception:
-      raiseAssert(
-        $e.name &
-        " was raised instead of " &
-        astToStr(exception) &
-        ": " & strip(astToStr(code))
-      )
+    if not (e of exception):
+      raiseAssert("$1 was raised instead of $2: $3" % [$e.name, astToStr(exception), strip(astToStr(code))])
 
   if codeDidNotRaiseException:
-    raiseAssert(astToStr(exception) & " wasn't raised by: " & strip(astToStr(code)))
+    raiseAssert("$1 was not raised by: $2" % [astToStr(exception), strip(astToStr(code))])
 
 when isMainModule:
   describe "testing":

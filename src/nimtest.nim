@@ -2,7 +2,7 @@ import
   osproc,
   strutils,
   strformat,
-  locks
+  sugar
 
 import nimtestpkg/tester
 export tester
@@ -14,7 +14,6 @@ const
 
 var
   cmdlineArgs = "--hints:off"
-  lock: Lock
   globalExitCode = 0
 
 proc testFile(a: tuple[file: string, args: string]) {.thread.} =
@@ -22,11 +21,9 @@ proc testFile(a: tuple[file: string, args: string]) {.thread.} =
     command = fmt"nim {a.args} r {a.file}"
   )
 
-  acquire(lock)
   echo output
   if exitcode != 0 or output.contains("[Failed]: "):
     globalExitCode = 1
-  release(lock)
 
 when isMainModule:
   import
@@ -64,15 +61,12 @@ when isMainModule:
 
   if testFiles.len >= 1:
     echo fmt"Tests found: {testFiles.len}"
-    initLock(lock)
 
-    var threads = newSeq[Thread[tuple[file: string, args: string]]](testFiles.len)
-    echo "Running tests..."
-    for (i, file) in testFiles.pairs:
-      createThread(threads[i], testFile, (file, cmdlineArgs))
-    joinThreads(threads)
-    
-    deinitLock(lock)
+    let processes = collect:
+      for file in testFiles:
+        fmt"nim {cmdlineArgs} r {file}"
+    globalExitCode = execProcesses(processes)
+
   else:
     echo "No tests found."
 
