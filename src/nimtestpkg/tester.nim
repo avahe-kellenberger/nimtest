@@ -1,8 +1,4 @@
-import
-  macros,
-  terminal,
-  strutils,
-  strformat
+import std/[macros, genasts, terminal, strutils, strformat]
 
 export
   macros,
@@ -33,55 +29,17 @@ template echoError(args: varargs[untyped]) =
     args
   )
 
-macro describe*(description: string, body: untyped): untyped =
-  result = newStmtList()
-  result.add quote do:
-    writeStyled(repeat(' ', testOutputIndentation))
-    styledWrite(
-      stdout,
-      fgYellow,
-      styleUnderscore,
-      `description`
-    )
-    styledWriteLine(
-      stdout,
-      fgYellow,
-      ":"
-    )
+template beforeAll(body: typed) =
+  proc beforeAllProc() = body
 
-  result.add quote do:
-    testOutputIndentation += NUM_INDENTATION_SPACES
+template beforeEach(body: typed) =
+  proc beforeEachProc() = body
 
-  var
-    # outsideTestBlocks is used when there are "it.only" conditions.
-    # The code outside of test blocks is typically used _in_ tests.
-    outsideTestBlocks: seq[NimNode]
-    testBlocks: seq[NimNode]
+template afterEach(body: typed) =
+  proc afterEachProc() = body
 
-  for node in body:
-    var addedTestBlock = false
-    if node.kind == nnkCommand:
-      let testDecl = node[0]
-      if testDecl.kind == nnkDotExpr and testDecl[0].kind == nnkIdent:
-        if eqIdent("test", testDecl[0].strVal) or eqIdent("it", testDecl[0].strVal):
-          if testDecl[1].kind == nnkIdent and eqIdent("only", testDecl[1].strVal):
-            node[0] = newIdentNode("test")
-            testBlocks.add node
-            addedTestBlock = true
-
-    if not addedTestBlock:
-      outsideTestBlocks.add node
-
-  if testBlocks.len > 0:
-    if outsideTestBlocks.len > 0:
-      result.add outsideTestBlocks
-    result.add testBlocks
-  else:
-    # No exclusive tests, add everything under the describe block.
-    result.add body
-
-  result.add quote do:
-    testOutputIndentation -= NUM_INDENTATION_SPACES
+template afterAll(body: typed) =
+  proc afterAllProc() = body
 
 template test*(description: string, body: untyped) =
   try:
@@ -127,16 +85,67 @@ template assertRaises*(exception: typedesc[Exception], errorMessage: string, cod
       raiseAssert("Wrong exception was raised: " & e.msg)
 
     if not (e of exception):
-      raiseAssert("$1 was raised instead of $2: $3" % [$e.name, astToStr(exception), strip(astToStr(code))])
+      raiseAssert(
+        "$1 was raised instead of $2: $3" % [$e.name, astToStr(exception), strip(astToStr(code))]
+      )
 
   if codeDidNotRaiseException:
     raiseAssert("$1 was not raised by: $2" % [astToStr(exception), strip(astToStr(code))])
 
-when isMainModule:
-  describe "testing":
-    test "test one":
-      doAssert 1 == 1
+macro describe*(description: static string, body: untyped): untyped =
+  result = newStmtList()
 
-    test.only "only this test will run":
-      doAssert 2 == 2
+  var blockBody = newStmtList()
+
+  blockBody.add quote do:
+    writeStyled(repeat(' ', testOutputIndentation))
+    styledWrite(
+      stdout,
+      fgYellow,
+      styleUnderscore,
+      `description`
+    )
+    styledWriteLine(
+      stdout,
+      fgYellow,
+      ":"
+    )
+    testOutputIndentation += NUM_INDENTATION_SPACES
+
+  for x in body:
+    if x.kind in {nnkCall, nnkCommand}:
+      let name = x[0]
+      var added = false
+      template specialCalls(s: static string) =
+        if not added and name.eqIdent s:
+          x[0] = bindSym(s)
+          blockBody.add x
+          if name.eqIdent "beforeAll":
+            blockBody.add newCall("beforeAllProc")
+          added = true
+
+      specialCalls("beforeAll")
+      specialCalls("beforeEach")
+      specialCalls("afterEach")
+      specialCalls("afterAll")
+
+      if not added:
+        blockBody.add:
+          genast(code = x):
+            when compiles(beforeEachProc()):
+              beforeEachProc()
+            code
+            when compiles(afterEachProc()):
+              afterEachProc()
+    else:
+      blockBody.add x
+  blockBody.add:
+    genast():
+      when compiles(afterAllProc()):
+        afterAllProc()
+
+  blockBody.add quote do:
+    testOutputIndentation -= NUM_INDENTATION_SPACES
+
+  result.add newBlockStmt(blockBody)
 
