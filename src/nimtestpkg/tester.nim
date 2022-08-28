@@ -57,7 +57,7 @@ template assertEquals*(a, b: untyped): untyped =
   if a != b:
     raise newException(
       Exception,
-      "Expected " & (repr a) & " to equal " & (repr b) &
+      "Expected:\n\t" & (repr a) & "\n\tto equal:\n\t" & (repr b) &
       "\n\tassertEquals(" & astToStr(a) & ", " & astToStr(b) & ")"
     )
 
@@ -65,7 +65,7 @@ template assertAlmostEquals*(a, b: float): untyped =
   if not almostEquals(a, b):
     raise newException(
       Exception,
-      "Expected " & (repr a) & " to equal " & (repr b) &
+      "Expected:\n\t" & (repr a) & "\n\tto equal:\n\t" & (repr b) &
       "\n\tassertAlmostEquals(" & astToStr(a) & ", " & astToStr(b) & ")"
     )
 
