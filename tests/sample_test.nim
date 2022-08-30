@@ -48,3 +48,16 @@ describe "Test with hooks":
     doAssert(a == 5)
 
 
+describe "assertEquals":
+
+  type Foo = ref object
+    x: int
+
+  it "works properly with nillable objects":
+    var f: Foo = nil
+    assertEquals(f, nil)
+
+    f = Foo(x: 5)
+    assertRaises:
+      assertEquals(f, nil)
+

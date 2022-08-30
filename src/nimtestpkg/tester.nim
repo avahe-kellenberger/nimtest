@@ -54,12 +54,30 @@ template it*(description: string, body: untyped) =
   test(description, body)
 
 template assertEquals*(a, b: untyped): untyped =
-  if a != b:
-    raise newException(
-      Exception,
-      "Expected:\n\t" & (repr a) & "\n\tto equal:\n\t" & (repr b) &
-      "\n\tassertEquals(" & astToStr(a) & ", " & astToStr(b) & ")"
-    )
+  when compiles(isNil(a)) and compiles(isNil(b)):
+    if a != b:
+      let aRepr = if isNil(a):
+        "nil"
+      else:
+        repr a
+
+      let bRepr = if isNil(b):
+        "nil"
+      else:
+        repr b
+
+      raise newException(
+        Exception,
+        "assertEquals(" & astToStr(a) & ", " & astToStr(b) & ")\n\t" &
+        "Expected:\n\t" & aRepr & "\n\tto equal:\n\t" & bRepr
+      )
+  else:
+    if a != b:
+      raise newException(
+        Exception,
+        "Expected:\n\t" & (repr a) & "\n\tto equal:\n\t" & (repr b) &
+        "\n\tassertEquals(" & astToStr(a) & ", " & astToStr(b) & ")"
+      )
 
 template assertAlmostEquals*(a, b: float): untyped =
   if not almostEquals(a, b):
@@ -74,7 +92,7 @@ template assertRaises*(exception: typedesc[Exception], errorMessage: string, cod
   ## specified exception. Example:
   ##
   ## .. code-block:: nim
-  ##  doAssertRaisesSpecific(ValueError, "wrong value!"):
+  ##  AssertRaises(ValueError, "wrong value!"):
   ##    raise newException(ValueError, "Hello World")
   var codeDidNotRaiseException = false
   try:
@@ -91,6 +109,21 @@ template assertRaises*(exception: typedesc[Exception], errorMessage: string, cod
 
   if codeDidNotRaiseException:
     raiseAssert("$1 was not raised by: $2" % [astToStr(exception), strip(astToStr(code))])
+
+template assertRaises*(code: untyped) =
+  ## Raises ``AssertionDefect``
+  ## if ``code`` does not raise an exception.
+  ##
+  ## Example:
+  ##
+  ## .. code-block:: nim
+  ##  assertRaises:
+  ##    raise newException(ValueError, "Hello World")
+  try:
+    code
+    raiseAssert("$1 was not raised by: $2" % [astToStr(exception), strip(astToStr(code))])
+  except Exception as e:
+    discard
 
 macro describe*(description: static string, body: untyped): untyped =
   result = newStmtList()

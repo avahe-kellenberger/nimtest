@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.1.0"
+version       = "0.1.1"
 author        = "Avahe Kellenberger"
 description   = "Simple testing framework for Nim"
 license       = "GPL-2.0-only"
