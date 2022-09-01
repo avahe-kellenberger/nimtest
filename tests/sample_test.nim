@@ -25,7 +25,6 @@ describe "Sample test":
     it "foo":
       doAssert 23 > 0
 
-
 describe "Test with hooks":
   var
     lock: Lock
@@ -46,7 +45,6 @@ describe "Test with hooks":
 
   it "tests something":
     doAssert(a == 5)
-
 
 describe "assertEquals":
 
