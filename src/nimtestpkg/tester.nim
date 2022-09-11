@@ -42,13 +42,15 @@ template afterAll(body: typed) =
   proc afterAllProc() = body
 
 template test*(description: string, body: untyped) =
-  try:
-    testOutputIndentation += NUM_INDENTATION_SPACES
-    body
-    testOutputIndentation -= NUM_INDENTATION_SPACES
-    echoSuccess(description)
-  except:
-    echoError(description, "\n\t", getCurrentExceptionMsg())
+  block:
+    try:
+      testOutputIndentation += NUM_INDENTATION_SPACES
+      body
+      echoSuccess(description)
+    except:
+      echoError(description, "\n\t", getCurrentExceptionMsg())
+    finally:
+      testOutputIndentation -= NUM_INDENTATION_SPACES
 
 template it*(description: string, body: untyped) =
   test(description, body)
